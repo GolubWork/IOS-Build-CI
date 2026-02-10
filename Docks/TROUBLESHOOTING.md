@@ -1,23 +1,52 @@
-# Troubleshooting
+# Устранение неполадок
 
-## Technical requirements
+## Технические требования
 
-Environment requirements for local build and CI:
+Требования к окружению для локальной сборки и CI:
 
 - **macOS** — 12+
-- **Xcode** — 14+ (16.x recommended)
-- **iOS deployment target** — 16.0 (from Podfile)
+- **Xcode** — 14+ (рекомендуется 16.x)
+- **Целевая версия iOS** — 16.0 (из Podfile)
 - **Ruby** — 3.3+
-- **Bundler** — for gems
+- **Bundler** — для гемов
 - **CocoaPods** — 1.16+
 
 ---
 
-## Common issues (Этап → Ошибка → Фикс)
+## Проблемы по этапам процесса сборки
 
-### Bundler — platform not in lockfile
+Навигация:
 
-- **Этап:** `bundle install` (CI, e.g. Build IPA job).
+- [2.1. Подготовка окружения](#21-подготовка-окружения)
+- [2.2. Установка зависимостей](#22-установка-зависимостей)
+- [2.3. Настройка сертификатов (Match)](#23-настройка-сертификатов-match)
+- [2.4. Code Signing](#24-code-signing)
+- [2.5. Сборка (Build)](#25-сборка-build)
+- [2.6. Загрузка в TestFlight](#26-загрузка-в-testflight)
+
+Формат: **Этап → Ошибка → Фикс.**
+
+---
+
+### 2.1. Подготовка окружения
+
+#### Fastlane — Fastfile not found at lanes/ios
+
+- **Этап:** Шаг CI, запускающий Fastlane (например `bundle exec fastlane build_for_testflight`).
+- **Ошибка:**
+  ```
+  [!] Could not find Fastfile at path '.../fastlane/./lanes/ios'
+  Error: Process completed with exit code 1.
+  ```
+- **Фикс:** В `fastlane/Fastfile` используйте `import "./lanes/ios.rb"` (с расширением `.rb`). Запускайте Fastlane из корня репозитория; вызывайте lane только по имени (например `bundle exec fastlane build_for_testflight`), а не `fastlane ios ...`. В GitHub Actions для шага укажите `working-directory` в корень репозитория. Перезапустите workflow.
+
+---
+
+### 2.2. Установка зависимостей
+
+#### Bundler — platform not in lockfile
+
+- **Этап:** `bundle install` (CI, например job Build IPA).
 - **Ошибка:**
   ```
   Your bundle only supports platforms ["x86_64-darwin"] but your local platform is
@@ -25,9 +54,9 @@ Environment requirements for local build and CI:
   `bundle lock --add-platform arm64-darwin-23` and try again.
   Error: The process '.../bundle' failed with exit code 16
   ```
-- **Фикс:** On any machine run `bundle lock --add-platform arm64-darwin-23`, commit `Gemfile.lock`. Optionally add both: `bundle lock --add-platform x86_64-darwin` and `bundle lock --add-platform arm64-darwin-23`. Re-run the workflow.
+- **Фикс:** На любой машине выполните `bundle lock --add-platform arm64-darwin-23`, закоммитьте `Gemfile.lock`. Опционально добавьте оба: `bundle lock --add-platform x86_64-darwin` и `bundle lock --add-platform arm64-darwin-23`. Перезапустите workflow.
 
-### Bundler — empty CHECKSUMS in lockfile
+#### Bundler — empty CHECKSUMS in lockfile
 
 - **Этап:** `bundle install` (CI).
 - **Ошибка:**
@@ -42,11 +71,11 @@ Environment requirements for local build and CI:
   `bundle config set frozen false`.
   Error: The process '.../bundle' failed with exit code 16
   ```
-- **Фикс:** Locally run `bundle lock --add-checksums` or `bundle install` (with network), commit the updated `Gemfile.lock`. Do not disable frozen mode in CI. Re-run the workflow.
+- **Фикс:** Локально выполните `bundle lock --add-checksums` или `bundle install` (с сетью), закоммитьте обновлённый `Gemfile.lock`. Не отключайте frozen mode в CI. Перезапустите workflow.
 
-### Build IPA — CocoaPods / Xcodeproj object version
+#### Build IPA — CocoaPods / Xcodeproj object version
 
-- **Этап:** Build IPA → Fastlane lane (e.g. `build_for_testflight`) → CocoaPods step (“Analyzing dependencies”, `pod install`).
+- **Этап:** Build IPA → lane Fastlane (например `build_for_testflight`) → шаг CocoaPods («Analyzing dependencies», `pod install`).
 - **Ошибка:**
   ```
   ArgumentError - [Xcodeproj] Unable to find compatibility version string for object version `71`.
@@ -54,24 +83,16 @@ Environment requirements for local build and CI:
   ...
   [!] Oh no, an error occurred.
   ```
-- **Фикс:** The project was saved with Xcode 26 (or newer) and has `objectVersion = 71` in `*.xcodeproj/project.pbxproj`; the xcodeproj gem 1.27.x only knows compatibility strings up to object version 77. In `IceVault.xcodeproj/project.pbxproj` set `objectVersion = 77` (replace `71`). Commit the change and re-run the workflow. If you prefer not to edit the file by hand: in Xcode open the project → File Inspector (⌘⌥0) → Project Document → set format to a version that produces object version 56 or 77.
+- **Фикс:** Проект сохранён в Xcode 26 (или новее) и имеет `objectVersion = 71` в `*.xcodeproj/project.pbxproj`; гем xcodeproj 1.27.x знает строки совместимости только до object version 77. В `ProjectName.xcodeproj/project.pbxproj` установите `objectVersion = 77` (замените `71`). Закоммитьте изменение и перезапустите workflow. Если не хотите править файл вручную: откройте проект в Xcode → File Inspector (⌘⌥0) → Project Document → установите формат в версию, дающую object version 56 или 77.
 
-### Build IPA — App Store Connect API key: invalid curve name
+---
 
-- **Этап:** Build IPA → Fastlane lane after CocoaPods (e.g. when using Match or TestFlight steps that need ASC API key).
-- **Ошибка:**
-  ```
-  invalid curve name (OpenSSL::PKey::ECError)
-  .../spaceship/lib/spaceship/connect_api/token.rb:71:in `initialize'
-  ```
-- **Фикс:**
-  1. **Secrets in GitHub:** The workflow expects secrets named **`APPSTORE_KEY_ID`**, **`APPSTORE_ISSUER_ID`**, **`APPSTORE_P8`** (Settings → Secrets and variables → Actions). If you created `ASC_KEY_ID` / `ASC_KEY` etc., the env vars will be empty and OpenSSL will fail with "invalid curve name".
-  2. Secrets: APPSTORE_KEY_ID, APPSTORE_ISSUER_ID, APPSTORE_P8
+### 2.3. Настройка сертификатов (Match)
 
-### Build IPA — Match: error cloning certificates repo
+#### Build IPA — Match: error cloning certificates repo
 
-- **Этап:** Build IPA → Fastlane lane `build_for_testflight` → step **match** (clone certificates repo).
-- **Ошибки (оба решаются настройкой секретов и переменных):**
+- **Этап:** Build IPA → lane Fastlane `build_for_testflight` → шаг **match** (клон репозитория сертификатов).
+- **Ошибки (обе решаются настройкой секретов и переменных):**
 
   1. **Пустой URL:**
      ```
@@ -81,116 +102,136 @@ Environment requirements for local build and CI:
      ```
   2. **Репозиторий не найден (неверный формат URL):**
      ```
-     fatal: repository 'GolubWork/IOS-IceVault-Certificates' does not exist
+     fatal: repository 'owner/ProjectName-Certificates' does not exist
      Error cloning certificates git repo, please make sure you have read access to the repository
      ```
 
-- **Фикс:** In GitHub repo **Settings → Secrets and variables → Actions** add:
+- **Фикс:** В настройках репозитория GitHub **Settings → Secrets and variables → Actions** добавьте:
 
-  1. **Secret** `GH_PAT` — GitHub Personal Access Token with read access to the Match certificates repo.
-  2. **Variable** `MATCH_GIT_URL` — full HTTPS URL of the Match certificates repo (e.g. `https://github.com/GolubWork/IOS-IceVault-Certificates.git`).  
-     Short form `owner/repo` is auto-normalized to `https://github.com/owner/repo.git` in `fastlane/MatchFile`; if you still see "repository '...' does not exist", use the full URL or check that the repo exists and `GH_PAT` has access.
+  1. **Secret** `GH_PAT` — GitHub Personal Access Token с правом чтения репозитория сертификатов Match.
+  2. **Variable** `MATCH_GIT_URL` — полный HTTPS URL репозитория сертификатов Match (например `https://github.com/owner/ProjectName-Certificates.git`).  
+     Краткая форма `owner/repo` автоматически приводится к `https://github.com/owner/repo.git` в `fastlane/MatchFile`; если по-прежнему видите «repository '...' does not exist», укажите полный URL или проверьте, что репозиторий существует и у `GH_PAT` есть к нему доступ.
 
-  Without `MATCH_GIT_URL` (or if it is empty) you get "empty string is not a valid path". Without `GH_PAT`, auth for cloning fails. Re-run the workflow after fixing both.
+  Без `MATCH_GIT_URL` (или если он пустой) получите «empty string is not a valid path». Без `GH_PAT` клонирование не пройдёт из-за авторизации. После исправления обоих перезапустите workflow.
 
-### Build IPA — Match: '' is not a valid filter (Apple Developer Portal)
+#### Build IPA — Match: '' is not a valid filter (Apple Developer Portal)
 
-- **Этап:** Build IPA → Fastlane lane `build_for_testflight` → step **match** (after cloning repo, when verifying with Apple Developer Portal).
+- **Этап:** Build IPA → lane Fastlane `build_for_testflight` → шаг **match** (после клонирования репозитория, при проверке в Apple Developer Portal).
 - **Ошибка:**
   ```
   An error occurred while verifying your certificates and profiles with the Apple Developer Portal.
   A parameter has an invalid value - '' is not a valid filter
   ```
-  In the match summary you may see `app_identifier | ["", ".notifications"]` (first element empty).
-- **Причина:** Variable **`BUNDLE_IDENTIFIER`** (and often **`APPLE_TEAM_ID`**) are not set in the repo, so Match sends an empty filter to the Apple API.
-- **Фикс:** In GitHub **Settings → Secrets and variables → Actions → Variables** set:
-  - **`BUNDLE_IDENTIFIER`** — your app bundle ID (e.g. `com.yourcompany.IceVault`).
-  - **`APPLE_TEAM_ID`** — your Apple Team ID (10 characters).
+  В сводке match может отображаться `app_identifier | ["", ".notifications"]` (первый элемент пустой).
+- **Причина:** Переменные **`BUNDLE_IDENTIFIER`** и (часто) **`APPLE_TEAM_ID`** не заданы в репозитории, поэтому Match передаёт в API Apple пустой фильтр.
+- **Фикс:** В GitHub **Settings → Secrets and variables → Actions → Variables** задайте:
+  - **`BUNDLE_IDENTIFIER`** — bundle ID приложения (например `com.yourcompany.ProjectName`).
+  - **`APPLE_TEAM_ID`** — Apple Team ID (10 символов).
 
-  Ensure the "Build for TestFlight" step receives these (workflow-level `env` or step-level `env`). Re-run the workflow after adding both variables.
+  Убедитесь, что шаг «Build for TestFlight» получает эти переменные (через `env` на уровне workflow или шага). После добавления обеих переменных перезапустите workflow.
 
-### Build IPA — code signing not applied to main target / ipa_path.txt missing
+#### Build IPA — Match: maximum number of Distribution certificates
 
-- **Этап:** Build IPA → Fastlane lane `build_for_testflight` (after Match, during `update_code_signing_settings` or "Prepare IPA for artifact").
-- **Ошибки:**
-  - In the lane summary: `targets | []` (empty), "None of the specified targets has been modified", then Xcode fails with "No profile for team …" or "No Accounts".
-  - Next step: `cat: ipa_path.txt: No such file or directory`.
-- **Причина:** Variable **`XC_TARGET_NAME`** is not set in the repo, so the lane does not know which target to configure for code signing and the IPA path may not be written correctly.
-- **Фикс:** In GitHub **Settings → Secrets and variables → Actions → Variables** add variable **`XC_TARGET_NAME`** with value **`IceVault`** (the scheme and main app target name). Re-run the workflow.
-
-### Fastlane — Fastfile not found at lanes/ios
-
-- **Этап:** CI step that runs Fastlane (e.g. `bundle exec fastlane build_for_testflight`).
-- **Ошибка:**
-  ```
-  [!] Could not find Fastfile at path '.../fastlane/./lanes/ios'
-  Error: Process completed with exit code 1.
-  ```
-- **Фикс:** In `fastlane/Fastfile` use `import "./lanes/ios.rb"` (with `.rb`). Run Fastlane from repo root; use the lane by name only (e.g. `bundle exec fastlane build_for_testflight`), not `fastlane ios ...`. In GitHub Actions set `working-directory` to the repo root for the step. Re-run the workflow.
-
-### Build IPA — Match: maximum number of Distribution certificates
-
-- **Этап:** Build IPA → Fastlane lane `build_for_testflight` → step **match** (creating or verifying Distribution certificate with Apple).
+- **Этап:** Build IPA → lane Fastlane `build_for_testflight` → шаг **match** (создание или проверка Distribution-сертификата в Apple).
 - **Ошибка:**
   ```
   Could not create another Distribution certificate, reached the maximum number of available Distribution certificates.
   (Apple API: "You already have a current Distribution certificate or a pending certificate request.")
   ```
-- **Причина:** In the Apple Developer account the limit of Distribution certificates for the team is already reached, or there is an existing (or pending) certificate and Match is trying to create another one.
-- **Фикс:** **Clear the already created certificates in the Apple Developer account** so that Match can create a new one, or reuse the existing one from the Match git repo.  
-  1. Open [Apple Developer Portal](https://developer.apple.com/account) → **Certificates, Identifiers & Profiles** → **Certificates**.
-  2. Find **Distribution** (Apple Distribution) certificates for your Team and **Revoke** the ones you no longer need (or that were created for other apps/teams). Apple allows only a limited number of Distribution certificates per team (e.g. 3); revoking frees a slot.
-  3. Optionally revoke unused **Development** certificates if you hit limits there.
-  4. If the Match git repo already contains valid certs and profiles for this app, you can run Match in **readonly** mode so it does not try to create new certs (use existing ones from the repo).  
-  After revoking, re-run the workflow. If you use a fresh Match repo with no certs yet, Match will create a new Distribution certificate after the cleanup.
+- **Причина:** В аккаунте Apple Developer достигнут лимит Distribution-сертификатов для команды, либо уже есть существующий (или ожидающий) сертификат, а Match пытается создать ещё один.
+- **Фикс:** **Очистите уже созданные сертификаты в аккаунте Apple Developer**, чтобы Match мог создать новый, либо переиспользуйте существующий из git-репозитория Match.  
+  1. Откройте [Apple Developer Portal](https://developer.apple.com/account) → **Certificates, Identifiers & Profiles** → **Certificates**.
+  2. Найдите **Distribution** (Apple Distribution) сертификаты для вашей команды и **Revoke** те, что больше не нужны (или были созданы для других приложений/команд). Apple разрешает ограниченное число Distribution-сертификатов на команду (например 3); отзыв освобождает слот.
+  3. При необходимости отзовите неиспользуемые **Development** сертификаты, если упираетесь в лимиты.
+  4. Если git-репозиторий Match уже содержит валидные сертификаты и профили для этого приложения, можно запускать Match в режиме **readonly**, чтобы он не пытался создавать новые сертификаты (использовать существующие из репозитория).  
+  После отзыва перезапустите workflow. Если используете пустой репозиторий Match без сертификатов, после очистки Match создаст новый Distribution-сертификат.
 
+#### Build IPA — App Store Connect API key: invalid curve name
 
+- **Этап:** Build IPA → lane Fastlane после CocoaPods (например при использовании Match или шагов TestFlight, требующих ключ ASC API).
+- **Ошибка:**
+  ```
+  invalid curve name (OpenSSL::PKey::ECError)
+  .../spaceship/lib/spaceship/connect_api/token.rb:71:in `initialize'
+  ```
+- **Фикс:**
+  1. **Секреты в GitHub:** Workflow ожидает секреты с именами **`APPSTORE_KEY_ID`**, **`APPSTORE_ISSUER_ID`**, **`APPSTORE_P8`** (Settings → Secrets and variables → Actions). Если вы создали `ASC_KEY_ID` / `ASC_KEY` и т.п., переменные окружения будут пустыми и OpenSSL выдаст «invalid curve name».
+  2. Секреты: APPSTORE_KEY_ID, APPSTORE_ISSUER_ID, APPSTORE_P8
 
-### IDE / Git — not showing changes (e.g. Git-Rider)
+---
 
-- **Этап:** Local work in Rider (or similar) with VCS.
-- **Ошибка:** Git does not show changes; repository root is not detected.
-- **Фикс:** Open the parent directory (the folder that contains the project) as the project so the repo root is correct. Or in Rider: Settings → Version Control, add the directory where `.git` lives as VCS root. Use File → Synchronize or Invalidate Caches / Restart if needed.
+### 2.4. Code Signing
+
+#### Build IPA — code signing not applied to main target / ipa_path.txt missing
+
+- **Этап:** Build IPA → lane Fastlane `build_for_testflight` (после Match, при `update_code_signing_settings` или «Prepare IPA for artifact»).
+- **Ошибки:**
+  - В сводке lane: `targets | []` (пусто), «None of the specified targets has been modified», затем Xcode падает с «No profile for team …» или «No Accounts».
+  - Следующий шаг: `cat: ipa_path.txt: No such file or directory`.
+- **Причина:** Переменная **`XC_TARGET_NAME`** не задана в репозитории, поэтому lane не знает, какой таргет настраивать для code signing, и путь к IPA может не записываться.
+- **Фикс:** В GitHub **Settings → Secrets and variables → Actions → Variables** добавьте переменную **`XC_TARGET_NAME`** со значением **`ProjectName`** (имя схемы и основного таргета приложения). Перезапустите workflow.
+
+---
+
+### 2.5. Сборка (Build)
+
+*(Добавляйте конкретные ошибки и решения по мере появления: этап → ошибка → фикс.)*
+
+---
+
+### 2.6. Загрузка в TestFlight
+
+*(Добавляйте конкретные ошибки и решения по мере появления: этап → ошибка → фикс.)*
+
+---
+
+## Локальная разработка (IDE / Git)
+
+### IDE / Git — не отображаются изменения (например Git-Rider)
+
+- **Этап:** Локальная работа в Rider (или аналоге) с VCS.
+- **Ошибка:** Git не показывает изменения; корень репозитория не определяется.
+- **Фикс:** Откройте родительскую директорию (папку, в которой лежит проект) как проект, чтобы корень репозитория был верным. Или в Rider: Settings → Version Control, добавьте директорию с `.git` как VCS root. При необходимости используйте File → Synchronize или Invalidate Caches / Restart.
 
 ---
 
 ## CI (GitHub Actions)
 
-**Secrets** (Settings → Secrets and variables → Actions → Secrets; names must match exactly):
+**Секреты** (Settings → Secrets and variables → Actions → Secrets; имена должны совпадать точно):
 
-- `APPSTORE_KEY_ID` — App Store Connect API key ID (passed to env as ASC_KEY_ID)
-- `APPSTORE_ISSUER_ID` — App Store Connect issuer ID (passed as ASC_ISSUER_ID)
-- `APPSTORE_P8` — App Store Connect .p8 key content, **Base64-encoded** (passed as ASC_KEY)
-- `GH_PAT` — GitHub PAT for Match repo access
-- `MATCH_PASSWORD` — Match certificates passphrase. **Optional:** if not set, an empty password is used; this works only when the Match certs repo was created (or re-encrypted) with an empty passphrase.
+- `APPSTORE_KEY_ID` — ID ключа API App Store Connect (передаётся в env как ASC_KEY_ID)
+- `APPSTORE_ISSUER_ID` — issuer ID App Store Connect (передаётся как ASC_ISSUER_ID)
+- `APPSTORE_P8` — содержимое .p8 ключа App Store Connect, **в кодировке Base64** (передаётся как ASC_KEY)
+- `GH_PAT` — GitHub PAT для доступа к репозиторию Match
+- `MATCH_PASSWORD` — пароль для сертификатов Match. **Опционально:** если не задан, используется пустой пароль; это работает только если репозиторий сертификатов Match был создан (или перешифрован) с пустым паролем.
 
-**Variables** (Settings → Secrets and variables → Actions → Variables):
+**Переменные** (Settings → Secrets and variables → Actions → Variables):
 
 - `APPLE_TEAM_ID`
 - `BUNDLE_IDENTIFIER`
-- **`XC_TARGET_NAME`** — **required.** Set to **`IceVault`** (scheme and main app target name). If this variable is missing or empty, the Build IPA job will fail: code signing will not be applied to the main target (`targets | []`) and `ipa_path.txt` may be missing. See subsection *Build IPA — code signing not applied to main target / ipa_path.txt missing* above.
-- `MATCH_GIT_URL` — Match certificates repo URL
-- `LAST_UPLOADED_BUILD_NUMBER` — last uploaded build number (updated after upload)
-- `APPLE_APP_ID` — numeric Apple app ID (for upload_to_testflight)
+- **`XC_TARGET_NAME`** — **обязательна.** Установите **`ProjectName`** (имя схемы и основного таргета приложения). Если переменная отсутствует или пуста, job Build IPA упадёт: code signing не применится к основному таргету (`targets | []`) и `ipa_path.txt` может отсутствовать. См. подраздел *Build IPA — code signing not applied to main target / ipa_path.txt missing* выше.
+- `MATCH_GIT_URL` — URL репозитория сертификатов Match
+- `LAST_UPLOADED_BUILD_NUMBER` — последний загруженный номер сборки (обновляется после загрузки)
+- `APPLE_APP_ID` — числовой Apple app ID (для upload_to_testflight)
 
 ---
 
-## Other
+## Другое
 
 ### Build & sign
 
-*(Add specific errors and solutions as they occur: этап → ошибка → фикс.)*
+*(Добавляйте конкретные ошибки и решения по мере появления: этап → ошибка → фикс.)*
 
-### TestFlight upload
+### Загрузка в TestFlight
 
-*(Add specific errors and solutions as they occur: этап → ошибка → фикс.)*
+*(Добавляйте конкретные ошибки и решения по мере появления: этап → ошибка → фикс.)*
 
-### Match / certificates
+### Match / сертификаты
 
-- **Empty password (no MATCH_PASSWORD secret):** The lane sets `MATCH_PASSWORD` to `""` when the secret is not set and applies a patch so the Match gem accepts empty password for encryption. Decryption and encryption will succeed only if the certificates repo was created with an empty passphrase (e.g. `fastlane match appstore` and press Enter when asked for password). To switch an existing repo to empty password: `fastlane match change_password` and set the new password to empty. You can remove the `MATCH_PASSWORD` secret from GitHub Actions.
+- **Пустой пароль (нет секрета MATCH_PASSWORD):** Lane устанавливает `MATCH_PASSWORD` в `""`, когда секрет не задан, и применяет патч, чтобы гем Match принимал пустой пароль для шифрования. Расшифровка и шифрование пройдут только если репозиторий сертификатов был создан с пустой фразой (например `fastlane match appstore` и нажмите Enter при запросе пароля). Чтобы перевести существующий репозиторий на пустой пароль: `fastlane match change_password` и задайте новый пароль пустым. Секрет `MATCH_PASSWORD` можно удалить из GitHub Actions.
 
-*(Add other errors and solutions as they occur: этап → ошибка → фикс.)*
+*(Добавляйте остальные ошибки и решения по мере появления: этап → ошибка → фикс.)*
 
 ### Firebase / GoogleService
 
-*(Add specific errors and solutions as they occur: этап → ошибка → фикс.)*
+*(Добавляйте конкретные ошибки и решения по мере появления: этап → ошибка → фикс.)*
