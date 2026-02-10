@@ -1,0 +1,10 @@
+# BUNDLE_IDENTIFIER is required; fail early with a clear message instead of Apple API "'' is not a valid filter"
+_bundle_id = ENV["BUNDLE_IDENTIFIER"].to_s.strip
+raise("BUNDLE_IDENTIFIER env is required for match. Set Variable BUNDLE_IDENTIFIER in GitHub Actions (Settings → Secrets and variables → Actions).") if _bundle_id.empty?
+
+# Normalize MATCH_GIT_URL: short form "owner/repo" -> full HTTPS URL for git clone
+_match_url = ENV["MATCH_GIT_URL"] || "https://github.com/NikDyr/BrainrotCheckerCerts.git"
+_match_url = "https://github.com/#{_match_url}.git" if _match_url && !_match_url.start_with?("http")
+git_url(_match_url)
+storage_mode("git")
+app_identifier([_bundle_id, _bundle_id + ".notifications"])

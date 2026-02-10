@@ -1,0 +1,61 @@
+# Build IPA only (no TestFlight upload). Use to verify signing and build, or to produce an IPA for manual upload.
+# Can be re-run independently from the full Build & TestFlight workflow.
+name: iOS — Build only
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build IPA
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "latest-stable"
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1.269.0
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Generate MATCH_GIT_BASIC_AUTHORIZATION
+        run: |
+          echo -n "NikDyr:${GH_PAT}" | base64 > base64.txt
+          echo "MATCH_GIT_BASIC_AUTHORIZATION=$(cat base64.txt)" >> $GITHUB_ENV
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+
+      - name: Build for TestFlight
+        working-directory: ${{ github.workspace }}
+        run: bundle exec fastlane build_for_testflight
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          ASC_KEY: ${{ secrets.APPSTORE_P8 }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ env.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          BUNDLE_IDENTIFIER: ${{ vars.BUNDLE_IDENTIFIER }}
+          XC_TARGET_NAME: ${{ vars.XC_TARGET_NAME }}
+          MATCH_GIT_URL: ${{ vars.MATCH_GIT_URL }}
+          LAST_UPLOADED_BUILD_NUMBER: ${{ vars.LAST_UPLOADED_BUILD_NUMBER }}
+
+      - name: Prepare IPA for artifact
+        working-directory: ${{ github.workspace }}
+        run: |
+          IPA_PATH=$(cat ipa_path.txt)
+          cp "$IPA_PATH" app.ipa
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-${{ github.run_id }}
+          path: |
+            app.ipa
+            build_number.txt

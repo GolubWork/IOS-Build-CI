@@ -1,0 +1,15 @@
+default_platform(:ios)
+
+platform :ios do
+  before_all do
+    ENV["FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT"] = "120"
+
+    # Clean derived data to avoid stale module cache issues
+    sh("rm -rf ~/Library/Developer/Xcode/DerivedData") rescue nil
+
+    # Install CocoaPods dependencies using Podfile.lock
+    cocoapods
+  end
+
+  import "./lanes/ios.rb"
+end
