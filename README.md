@@ -10,7 +10,7 @@ This repository contains build and deployment logic for iOS apps: Fastlane lanes
 | **fastlane/lanes/ios.rb** | iOS-specific lanes: load ASC API key, match + signing + build, TestFlight upload |
 | **.github/workflows/** | Workflow definitions: full flow (build + upload) and build-only |
 | **Gemfile** / **Gemfile.lock** | Ruby dependencies (fastlane, cocoapods, xcodeproj) |
-| **Docks/** | Documentation; see [Docks/TROUBLESHOOTING.md](Docks/TROUBLESHOOTING.md) for troubleshooting |
+| **Docks/** | Documentation: [TROUBLESHOOTING.md](Docks/TROUBLESHOOTING.md), [CHATGPT_TROUBLESHOOTING_RULES.md](Docks/CHATGPT_TROUBLESHOOTING_RULES.md) (ChatGPT rules for error lookup) |
 
 ## Build process
 
@@ -64,4 +64,5 @@ If this repo is used from a **separate** repository:
 ## Links
 
 - [Docks/TROUBLESHOOTING.md](Docks/TROUBLESHOOTING.md) — typical errors, fixes, and configuration details
+- [Docks/CHATGPT_TROUBLESHOOTING_RULES.md](Docks/CHATGPT_TROUBLESHOOTING_RULES.md) — **ChatGPT rules:** error → fix quick reference for AI assistants; use when pasting CI/build errors to get suggested fixes and a pointer to the full troubleshooting doc
 - [.github/README.md](.github/README.md) — workflow structure and required CI configuration
