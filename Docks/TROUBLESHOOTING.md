@@ -1,5 +1,23 @@
 # Устранение неполадок
 
+## Оглавление по названию ошибки
+
+Быстрый переход к разделу по тексту ошибки:
+
+| Ошибка | Раздел |
+|--------|--------|
+| [invalid curve name](#build-ipa--app-store-connect-api-key-invalid-curve-name) | App Store Connect API key |
+| [Fastfile not found at path '.../lanes/ios'](#fastlane--fastfile-not-found-at-lanesios) | Fastlane |
+| [platform not in lockfile](#bundler--platform-not-in-lockfile) | Bundler |
+| [empty CHECKSUMS in lockfile](#bundler--empty-checksums-in-lockfile) | Bundler |
+| [Unable to find compatibility version for object version](#build-ipa--cocoapods--xcodeproj-object-version) | CocoaPods / Xcodeproj |
+| [error cloning certificates repo](#build-ipa--match-error-cloning-certificates-repo) | Match |
+| ['' is not a valid filter](#build-ipa--match--is-not-a-valid-filter-apple-developer-portal) | Match (Apple Developer Portal) |
+| [maximum number of Distribution certificates](#build-ipa--match-maximum-number-of-distribution-certificates) | Match |
+| [code signing not applied / ipa_path.txt missing](#build-ipa--code-signing-not-applied-to-main-target--ipa_pathtxt-missing) | Code Signing |
+
+---
+
 ## Технические требования
 
 Требования к окружению для локальной сборки и CI:
@@ -182,16 +200,6 @@
 ### 2.6. Загрузка в TestFlight
 
 *(Добавляйте конкретные ошибки и решения по мере появления: этап → ошибка → фикс.)*
-
----
-
-## Локальная разработка (IDE / Git)
-
-### IDE / Git — не отображаются изменения (например Git-Rider)
-
-- **Этап:** Локальная работа в Rider (или аналоге) с VCS.
-- **Ошибка:** Git не показывает изменения; корень репозитория не определяется.
-- **Фикс:** Откройте родительскую директорию (папку, в которой лежит проект) как проект, чтобы корень репозитория был верным. Или в Rider: Settings → Version Control, добавьте директорию с `.git` как VCS root. При необходимости используйте File → Synchronize или Invalidate Caches / Restart.
 
 ---
 
