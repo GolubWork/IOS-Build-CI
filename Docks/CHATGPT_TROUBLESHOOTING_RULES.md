@@ -24,6 +24,7 @@
 
 | Error pattern | Fix |
 |---------------|-----|
+| `The list of sources changed, but the lockfile can't be updated because frozen mode is set` / `You have deleted from the Gemfile` | `Gemfile` and `Gemfile.lock` are out of sync. Run `bundle install` locally, commit updated `Gemfile.lock`, push, restart CI. |
 | `Your bundle only supports platforms ["x86_64-darwin"] but your local platform is arm64-darwin-23` | Run `bundle lock --add-platform arm64-darwin-23` (optionally also `x86_64-darwin`), commit `Gemfile.lock`, restart workflow. |
 | `Your lockfile has an empty CHECKSUMS entry for "..."` / `can't be updated because frozen mode is set` | Locally run `bundle lock --add-checksums` or `bundle install` (with network), commit updated `Gemfile.lock`. Do not disable frozen mode in CI. Restart workflow. |
 | `[Xcodeproj] Unable to find compatibility version string for object version '71'` | Project was saved in Xcode 26+ (`objectVersion = 71`). In `*.xcodeproj/project.pbxproj` set `objectVersion = 77`, or in Xcode set Project Document format to a version that gives 56 or 77. Commit and restart. |
@@ -34,6 +35,7 @@
 
 | Error pattern | Fix |
 |---------------|-----|
+| `fatal: could not read Username for 'https://github.com': terminal prompts disabled` / `Error cloning certificates git repo` | Re-create/update `GH_PAT` and ensure token has access to Match certificates repo (`repo` scope for classic PAT or `Contents: Read and Write` for fine-grained). Verify `MATCH_GIT_URL` points to existing private repo. |
 | `fatal: The empty string is not a valid path` / `git clone ''` / `Error cloning certificates git repo` | Add GitHub Actions: **Secret** `GH_PAT` (PAT with read access to certs repo), **Variable** `MATCH_GIT_URL` (full HTTPS URL of Match repo, e.g. `https://github.com/owner/ProjectName-Certificates.git`). Restart workflow. |
 | `fatal: repository '...' does not exist` (Match repo) | Same as above: set `MATCH_GIT_URL` to full URL and ensure `GH_PAT` has access to that repo. |
 | `'' is not a valid filter` (Apple Developer Portal) / `app_identifier \| ["", ".notifications"]` | Set **Variables**: `BUNDLE_IDENTIFIER` (app bundle ID), `APPLE_TEAM_ID` (10 chars). Ensure workflow step receives them via `env`. Restart workflow. |
