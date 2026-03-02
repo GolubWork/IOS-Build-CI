@@ -35,7 +35,7 @@
 
 | Error pattern | Fix |
 |---------------|-----|
-| `fatal: could not read Username for 'https://github.com': terminal prompts disabled` / `Error cloning certificates git repo` | Re-create/update `GH_PAT` and ensure token has access to Match certificates repo (`repo` scope for classic PAT or `Contents: Read and Write` for fine-grained). Verify `MATCH_GIT_URL` points to existing private repo. |
+| `fatal: could not read Username for 'https://github.com': terminal prompts disabled` / `Error cloning certificates git repo` | Re-create/update `GH_PAT` and ensure token has access to Match certificates repo (`repo` scope for classic PAT or `Contents: Read and Write` for fine-grained). Verify `MATCH_GIT_URL` points to existing private repo. If using `MATCH_GIT_BASIC_AUTHORIZATION`, ensure it is valid and belongs to a user with repo access. Quick check: `git clone <MATCH_GIT_URL> /tmp/test-certs-access`. |
 | `fatal: The empty string is not a valid path` / `git clone ''` / `Error cloning certificates git repo` | Add GitHub Actions: **Secret** `GH_PAT` (PAT with read access to certs repo), **Variable** `MATCH_GIT_URL` (full HTTPS URL of Match repo, e.g. `https://github.com/owner/ProjectName-Certificates.git`). Restart workflow. |
 | `fatal: repository '...' does not exist` (Match repo) | Same as above: set `MATCH_GIT_URL` to full URL and ensure `GH_PAT` has access to that repo. |
 | `'' is not a valid filter` (Apple Developer Portal) / `app_identifier \| ["", ".notifications"]` | Set **Variables**: `BUNDLE_IDENTIFIER` (app bundle ID), `APPLE_TEAM_ID` (10 chars). Ensure workflow step receives them via `env`. Restart workflow. |
@@ -88,20 +88,21 @@ If the error is about missing or invalid credentials/signing, check these names 
 | Situation | Fix |
 |-----------|-----|
 | No `MATCH_PASSWORD` secret / empty password | Lane uses empty password if secret is unset. Repo must have been created (or re-encrypted via `fastlane match change_password`) with empty passphrase. To migrate: `fastlane match change_password` and set new password to empty; then you can remove `MATCH_PASSWORD` from GitHub. |
+| Certs were revoked/recreated and team worries TestFlight/App Store app will be "new" | Regenerating signing certificates does **not** create a new app in App Store Connect. App identity is Bundle ID + Team ID; with the same values, uploads continue to the same app. |
 
 ---
 
 ## Summary for matching
 
 - **Fastfile / lanes/ios** → import path `.rb`, run from root, `working-directory`.
+- **Gemfile vs lockfile drift** → run `bundle install`, commit updated `Gemfile.lock`.
 - **Bundler platform** → `bundle lock --add-platform arm64-darwin-23`, commit lockfile.
 - **Bundler CHECKSUMS** → `bundle lock --add-checksums` or `bundle install` locally, commit lockfile.
 - **Xcodeproj object version 71** → set `objectVersion = 77` in project.pbxproj (or Xcode project format).
+- **Match auth (terminal prompts disabled)** → refresh `GH_PAT` / auth, verify repo access with `git clone`.
 - **Match clone empty / repo not exist** → `GH_PAT` + `MATCH_GIT_URL` (full URL).
 - **Match '' is not a valid filter** → `BUNDLE_IDENTIFIER` + `APPLE_TEAM_ID`.
 - **Match max Distribution certificates** → Revoke certs in Apple Developer or use Match readonly.
 - **App Store key invalid curve** → Secrets: `APPSTORE_KEY_ID`, `APPSTORE_ISSUER_ID`, `APPSTORE_P8`.
 - **Code signing / ipa_path.txt** → Variable `XC_TARGET_NAME` (e.g. `ProjectName`).
 - **IDE Git not showing changes** → Correct VCS root / open parent folder.
-
-When in doubt, suggest checking `Docks/TROUBLESHOOTING.md` and the exact secret/variable names in GitHub Actions.
