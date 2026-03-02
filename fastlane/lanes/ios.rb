@@ -40,7 +40,7 @@ private_lane :match_signing_build do
   main_profile = ENV["sigh_#{ENV['BUNDLE_IDENTIFIER']}_appstore_profile-name"] || "match AppStore #{ENV["BUNDLE_IDENTIFIER"]}"
   notifications_profile = ENV["sigh_#{ENV['BUNDLE_IDENTIFIER']}.notifications_appstore_profile-name"] || "match AppStore #{ENV["BUNDLE_IDENTIFIER"]}.notifications"
   # targets must be an array; string would result in no target matched.
-  main_target = (ENV["XC_TARGET_NAME"].to_s.strip.empty? ? "IceVault" : ENV["XC_TARGET_NAME"]).to_s
+  main_target = (ENV["XC_TARGET_NAME"].to_s.strip.empty? ? "BaseProject" : ENV["XC_TARGET_NAME"]).to_s
   update_code_signing_settings(
     use_automatic_signing: false,
     team_id: ENV["TEAM_ID"],
